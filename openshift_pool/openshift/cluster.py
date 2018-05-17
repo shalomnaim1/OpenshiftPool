@@ -59,9 +59,9 @@ class OpenshiftClusterBuilder(Loggable, metaclass=Singleton):
                 ocp_version=version,
                 logs_directory=cluster.mgmt_env.path,
                 openshift_master_default_subdomain='apps.{}'.format(cluster.stack.hosts_data['ocp_servers_domain']),
-                master_nodes=[node.fqdn for node in cluster.nodes if node.type == NodeType.MASTER],
-                infra_nodes=[node.fqdn for node in cluster.nodes if node.type == NodeType.INFRA],
-                compute_nodes=[node.fqdn for node in cluster.nodes if node.type == NodeType.COMPUTE]
+                master_nodes=[node for node in cluster.nodes if node.type == NodeType.MASTER],
+                infra_nodes=[node for node in cluster.nodes if node.type == NodeType.INFRA],
+                compute_nodes=[node for node in cluster.nodes if node.type == NodeType.COMPUTE]
             )
         )
 
@@ -196,6 +196,11 @@ class Node(object):
     @property
     def fqdn(self):
         return self._stack_instance.fqdn
+
+    @property
+    def ip(self):
+        import socket
+        return socket.gethostbyname(self._stack_instance.fqdn)
 
     @property
     def type(self):
