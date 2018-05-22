@@ -1,5 +1,8 @@
 import re
+import sys
 import argparse
+import itertools
+import datetime
 
 from openshift_pool.openshift.cluster import OpenshiftClusterBuilder
 from openshift_pool.env import config_workspace_as_cwd
@@ -17,49 +20,85 @@ parser = argparse.ArgumentParser()
 operation_subparser = parser.add_subparsers(dest='operation', help='operation')
 
 create_parser = operation_subparser.add_parser('create', help='Creating a cluster stack without deploy')
-create_parser.add_argument('cluster_name', action='store', help='The name of the cluster')
-create_parser.add_argument('node_types', action='store',
-                           help='The type of type nodes, all of them should be master, infra or compute')
+create_parser.add_argument('--master_count', type=int, default=1, action='store',help='The count of master nodes')
+create_parser.add_argument('--infra_count', type=int, default=1, action='store',help='The count of infra nodes')
+create_parser.add_argument('--compute_count', type=int, default=3 ,action='store',help='The count of compute nodes')
+create_parser.add_argument('--owner', type=str, action='store',help='The owner of the stack')
 
 deploy_parser = operation_subparser.add_parser('deploy', help='Deploying a cluster')
-deploy_parser.add_argument('cluster_name', action='store', help='The name of the cluster')
-deploy_parser.add_argument('node_types', action='store',
-                           help='The type of type nodes, all of them should be master, infra or compute')
-deploy_parser.add_argument('version', action='store', help='The openshift version to deploy')
+deploy_parser.add_argument('--version', default="latest",action='store', help='The openshift version to deploy')
+deploy_parser.add_argument('--master_count', type=int, default=1, action='store',help='The count of master nodes')
+deploy_parser.add_argument('--infra_count', type=int, default=1, action='store',help='The count of infra nodes')
+deploy_parser.add_argument('--compute_count', type=int, default=3 ,action='store',help='The count of compute nodes')
+deploy_parser.add_argument('--owner', type=str, action='store',help='The owner of the stack')
 
 delete_parser = operation_subparser.add_parser('delete', help='Deleting a cluster')
 delete_parser.add_argument('cluster_name', action='store', help='The name of the cluster')
-delete_parser.add_argument('-f', '--force', dest='force', required=False, action='store_true',
-                           help='Force operation without prompt')
-
+delete_parser.add_argument('--owner', type=str, action='store',help='The owner of the stack')
 
 def parse_commend(namespace):
+
+    def is_positive(num):
+        return num > 0
+
+    def is_stack_exist(stack_name):
+        return bool(StackBuilder().is_stack(stack_name))
+
+    def is_valid_version(version):
+        return bool(re.match('\d\.\d', version))
+
+    def is_supported_version(version):
+        return version not in OpenshiftClusterBuilder().SUPPORTED_VERSIONS
+
+    def validate_args(namespace):
+
+        deploy_args = ["master_count", "infra_count", "compute_count", "version"]
+        create_args = ["master_count", "infra_count", "compute_count"]
+        delete_args = ["cluster_name"]
+
+        action_dict = {"create": create_args, "deploy": deploy_args, "delete": delete_args}
+
+        test_dict = {"master_count": [is_positive], "infra_count": [is_positive], "compute_count": [is_positive],
+                     "version": [is_valid_version, is_supported_version], "cluster_name": [is_stack_exist()]}
+        general_valid = True
+        invalid_param_names = []
+
+        # Validate if all args are valid
+        for arg in action_dict[namespace.operation]:
+            # all the required checks for specific arg finished successfully and is_valid was never with false value
+            is_valid = all([test(getattr(namespace, arg)) for test in test_dict[arg]])
+            if not is_valid:
+                invalid_param_names.append(arg)
+
+            general_valid = general_valid and is_valid
+        return  (general_valid, invalid_param_names)
+
+    def create(namespace):
+        master_nodes = StackBuilder.get_node_name("master", namespace.master_count)
+        infra_nodes = StackBuilder.get_node_name("infra", namespace.infra_count)
+        compute_nodes = StackBuilder.get_node_name("compute", namespace.compute_count)
+
+        node_names = itertools.chain(*[master_nodes, infra_nodes, compute_nodes])
+        stack_name = f"{namespace.owner}-{namespace.owner.replace(',','')}-{datetime.datetime.now().strftime('%m%d%y-%H%M%S')}"
+        StackBuilder.create(stack_name, node_names, [NodeType.MASTER] * namespace.master_count +
+                                                    [NodeType.INFRA] * namespace.infra_count +
+                                                    [NodeType.COMPUTE] * namespace.compute_count)
+
+    def deploy(namespace):
+        pass
+
+    def delete(namespace):
+        pass
+    tasks_dict = {"create": create, "deploy":deploy, "delete":delete}
+
+    is_valid, wrong_params = validate_args(namespace)
+    if not is_valid:
+        print(f"Parameters validation failed for one or more parameters: {wrong_params}")
+        sys.exit(1)
+
     if namespace.operation in ('create', 'deploy'):
-        try:
-            node_types = [next(nt for nt in NodeType if nt.value == node_type.lower())
-                          for node_type in namespace.node_types.split(',')]
-        except StopIteration:
-            print(f'Node types are invalid! {namespace.node_types.split(",")}')
-            return
 
-        for node_type in NodeType:
-            if node_type not in node_types:
-                print(f'Cluster must include at least one `{node_type.value}` node!')
-                return
-
-        if StackBuilder().is_stack(namespace.cluster_name):
-            print(f'Cluster with the given name "{namespace.cluster_name}" is already exists!')
-            return
-
-        if namespace.operation == 'deploy':
-
-            version = re.match('\d\.\d', namespace.version)
-            if not version or version.group() not in OpenshiftClusterBuilder().SUPPORTED_VERSIONS:
-                print(f'Unsupported version: {version.group()}. '
-                      f'Supported versions: {", ".join(OpenshiftClusterBuilder().SUPPORTED_VERSIONS)}')
-                return
-
-            cluster = OpenshiftClusterBuilder().create(
+        cluster = OpenshiftClusterBuilder().create(
                 namespace.cluster_name, node_types, namespace.version
             )
             print('Openshift cluster has successfully deployed.')

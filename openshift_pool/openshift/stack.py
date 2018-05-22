@@ -43,6 +43,13 @@ class StackBuilder(Loggable, metaclass=Singleton):
             service_type='orchestration', endpoint_type='publicURL')
         return Client('1', endpoint=heat_url, token=self.keystone_client.auth_token)
 
+    @staticmethod
+    def get_node_name(node_type, nodes_count):
+        if nodes_count == 1:
+            return [f"ocp-{node_type}"]
+        else:
+            return [f"ocp-{node_type}-{i}"for i in range(1,nodes_count+1)]
+
     def _config_domains(self, stack, method, check_connection_attempts=10):
         """
         Either create or delete domains for the stack.
@@ -103,9 +110,6 @@ class StackBuilder(Loggable, metaclass=Singleton):
         )
 
     def create(self, name, instance_names, instance_types):
-        assert isinstance(name, str)
-        assert len(instance_names) == len(instance_types)
-        assert NodeType.MASTER in instance_types, 'Stack must include master instance'
 
         self.log.info(f'Creating stack: name={name}; instance_names={instance_names}; instance_types={instance_types};')
 
@@ -195,17 +199,19 @@ class Stack(object):
     def config_data(self):
         return CONFIG_DATA['openstack']
 
-    @property
+    @cached_property
     def stack(self):
         if not self._stack:
             self._stack = next((s for s in self.heat_client.stacks.list()
                                 if s.stack_name == self.name), None)
+
         return self._stack
 
     @property
     def status(self):
         if not self.stack:
             return
+        Loggable._logger:
         self.stack.get()
         return self._stack.stack_status.upper()
 

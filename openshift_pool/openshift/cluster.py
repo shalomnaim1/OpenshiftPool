@@ -112,6 +112,7 @@ class OpenshiftClusterBuilder(Loggable, metaclass=Singleton):
         for node_type in node_types:
             base_name = self.NODE_NAME_BASE_PATTERN.format(node_type=node_type.value)
             full_pattern = base_name + self.NODE_NAME_INDEX_PATTERN
+
             i = 0
             while full_pattern.format(n=i) in names:
                 i += 1
@@ -145,7 +146,7 @@ class OpenshiftClusterBuilder(Loggable, metaclass=Singleton):
             'install', result)
         return cluster
 
-    def create(self, name, node_types, version):
+    def create(self, name, master_node_count, infra_node_count, compute_node_count, version):
         """Creating a new openshift cluster. Creating the stack and deploy Openshift.
             @param name: (`str`) The name of the cluster.
             @param node_types: (`list` of `NodeType`)  List of the node types in the cluster.
@@ -153,10 +154,8 @@ class OpenshiftClusterBuilder(Loggable, metaclass=Singleton):
             @param version: (`str`) The Openshift version to deploy.
             @rtype: `OpenshiftCluster`.
         """
-        assert isinstance(name, str)
-        assert NodeType.MASTER in node_types, 'Cluster must include at least 1 master'
-        assert any(filter(lambda t: t in node_types, [NodeType.INFRA, NodeType.COMPUTE])), \
-            'Cluster must include at least 1 additional node except master'
+
+
         self.log.info(f'Creating cluster: {name} node_types={[t.value for t in node_types]}; version={version}')
         stack = StackBuilder().create(name, self.gen_node_names(node_types), node_types)
         cluster = OpenshiftCluster(stack, self._fetch_nodes_from_stack_instances(stack))

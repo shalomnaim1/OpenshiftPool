@@ -63,6 +63,10 @@ class NodeType(Enum):
     INFRA = 'infra'
     COMPUTE = 'compute'
 
+    @staticmethod
+    def get_node_types():
+        pass
+
 
 class Loggable:
     """
