@@ -49,11 +49,11 @@ openshift_cloudprovider_openstack_region=regionOne
 
 [nodes]
 {% for host in master_nodes %}
-{{ host.fqdn }} openshift_public_hostname={{ host.fqdn }} openshift_public_ip={{ host.ip }} openshift_hostname={{ host.fqdn}}
+{{ host.p_ip }} openshift_public_hostname={{ host.fqdn }} openshift_public_ip={{ host.ip }}
 {% endfor %}
 {% for host in infra_nodes %}
-{{ host.fqdn }} openshift_public_hostname={{ host.fqdn }} openshift_public_ip={{ host.ip }} openshift_hostname={{ host.fqdn}} openshift_node_labels="{'region': 'infra', 'zone': 'default'}"
+{{ host.p_ip }} openshift_public_hostname={{ host.fqdn }} openshift_public_ip={{ host.ip }} openshift_node_labels="{'region': 'infra', 'zone': 'default'}"
 {% endfor %}
 {% for host in compute_nodes %}
-{{ host.fqdn }} openshift_public_hostname={{ host.fqdn }} openshift_public_ip={{ host.ip }} openshift_hostname={{ host.fqdn}} openshift_node_labels="{'region': 'primary', 'zone': 'default'}"
+{{ host.p_ip }} openshift_public_hostname={{ host.fqdn }} openshift_public_ip={{ host.ip }} openshift_node_labels="{'region': 'primary', 'zone': 'default'}"
 {% endfor %}

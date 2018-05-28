@@ -203,6 +203,13 @@ class Node(object):
         return socket.gethostbyname(self._stack_instance.fqdn)
 
     @property
+    def p_ip(self):
+        _, stdout, _ = self.ssh.exec_command("""ip addr show eth0 | grep -w inet | awk {'print $2'}""")
+        ip = stdout.readlines().pop().replace("\n","").split("/")[0]
+
+        return ip
+
+    @property
     def type(self):
         return self._type
 
